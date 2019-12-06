@@ -9,7 +9,11 @@ RUN apt-get -y install python3.5
 RUN mkdir /home/test \
 	&& cd /home/test \
 	&& git clone https://github.com/rosessp/test.git \
-	&& python3 test/message.py
+	&& cd /test
+	
+FROM python:3
+ADD message.py 
+CMD [ "python", "./message.py" ]
 	
 	
 CMD ["echo","SUCCESS: Dockerfile Image Created"]
