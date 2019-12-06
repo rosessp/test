@@ -5,6 +5,6 @@ RUN apt-get update \
 
 RUN mkdir /home/test \
 	&& cd /home/test \
-	&& git clone https://github.com/rosessp/demo.git
+	&& git clone https://github.com/rosessp/test.git
 
 
