@@ -6,7 +6,8 @@ RUN apt-get update \
 
 RUN mkdir /home/test \
 	&& cd /home/test \
-	&& git clone https://github.com/rosessp/test.git
+	&& git clone https://github.com/rosessp/test.git \
+	&& python message.py
 	
 	
 CMD ["echo","SUCCESS: Dockerfile Image Created"]
