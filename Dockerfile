@@ -7,4 +7,4 @@ RUN mkdir /home/test \
 	&& cd /home/test \
 	&& git clone https://github.com/rosessp/demo.git
 
-CMD ["echo","SUCCESS: Docker Image Created"] 
+
