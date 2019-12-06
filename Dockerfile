@@ -5,13 +5,12 @@ RUN apt-get update \
 
 RUN mkdir /home/test \
 	&& cd /home/test \
-	&& git clone https://github.com/rosessp/test.git \
-	&& cd /test
+	&& git clone https://github.com/rosessp/test.git 
 	
 FROM python:3
-ADD message.py /
+ADD /test/message.py /
 RUN pip install pystrich
-CMD [ "python", "./message.py" ]
+CMD [ "python", "./test/message.py" ]
 	
 	
 CMD ["echo","SUCCESS: Dockerfile Image Created"]
