@@ -1,17 +1,15 @@
-FROM ubuntu:bionic
+FROM python:3
 
 
 RUN apt-get update \
 	&& apt-get install -y git
-
-RUN apt-get -y install python3.5
 
 RUN mkdir /home/test \
 	&& cd /home/test \
 	&& git clone https://github.com/rosessp/test.git \
 	&& cd /test
 	
-FROM python:3
+
 ADD message.py 
 CMD [ "python", "./message.py" ]
 	
