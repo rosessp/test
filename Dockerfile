@@ -1,86 +1,84 @@
-FROM ubuntu:bionic
+FROM debian:stretch-slim
+MAINTAINER Odoo S.A. <info@odoo.com>
+
+# Generate locale C.UTF-8 for postgres and general locale data
 ENV LANG C.UTF-8
-USER root
-# Install base files
-RUN set -x ; \
-    apt-get update \
-    && apt-get install -y --no-install-recommends \
-    apt-transport-https \
-    build-essential \
-    ca-certificates \
-    curl \
-    fonts-freefont-ttf \
-    fonts-noto-cjk \
-    gawk \
-    gnupg \
-    libldap2-dev \
-    libsasl2-dev \
-    libxslt1-dev \
-    node-less \
-    python \
-    python-dev \
-    python-pip \
-    python3 \
-    python3-dev \
-    python3-pip \
-    python3-setuptools \
-    python3-wheel \
-    sed \
-    sudo \
-    unzip \
-    xfonts-75dpi \
-    zip \
-    zlib1g-dev
 
-# Install Google Chrome
-RUN curl -sSL http://nightly.odoo.com/odoo.key | apt-key add - \
-    && echo "deb http://nightly.odoo.com/deb/bionic ./" > /etc/apt/sources.list.d/google-chrome.list \
-    && apt-get update \ 
-    && apt-get install -y -qq google-chrome-stable
+# Use backports to avoid install some libs with pip
+RUN echo 'deb http://deb.debian.org/debian stretch-backports main' > /etc/apt/sources.list.d/backports.list
 
-# Install phantomjs
-RUN curl -sSL https://bitbucket.org/ariya/phantomjs/downloads/phantomjs-2.1.1-linux-x86_64.tar.bz2  -o /tmp/phantomjs.tar.bz2 \
-    && tar xvfO /tmp/phantomjs.tar.bz2 phantomjs-2.1.1-linux-x86_64/bin/phantomjs > /usr/local/bin/phantomjs \
-    && chmod +x /usr/local/bin/phantomjs \
-    && rm -f /tmp/phantomjs.tar.bz2
+# Install some deps, lessc and less-plugin-clean-css, and wkhtmltopdf
+RUN set -x; \
+        apt-get update \
+        && apt-get install -y --no-install-recommends \
+            ca-certificates \
+            curl \
+            dirmngr \
+            fonts-noto-cjk \
+            gnupg \
+            libssl1.0-dev \
+            node-less \
+            python3-num2words \
+            python3-pip \
+            python3-phonenumbers \
+            python3-pyldap \
+            python3-qrcode \
+            python3-renderpm \
+            python3-setuptools \
+            python3-vobject \
+            python3-watchdog \
+            python3-xlwt \
+            xz-utils \
+        && curl -o wkhtmltox.deb -sSL https://github.com/wkhtmltopdf/wkhtmltopdf/releases/download/0.12.5/wkhtmltox_0.12.5-1.stretch_amd64.deb \
+        && echo '7e35a63f9db14f93ec7feeb0fce76b30c08f2057 wkhtmltox.deb' | sha1sum -c - \
+        && apt-get install -y --no-install-recommends ./wkhtmltox.deb \
+        && rm -rf /var/lib/apt/lists/* wkhtmltox.deb
 
-# Install wkhtml
-RUN curl -sSL https://github.com/wkhtmltopdf/wkhtmltopdf/releases/download/0.12.5/wkhtmltox_0.12.5-1.bionic_amd64.deb -o /tmp/wkhtml.deb \
-    && apt-get update \
-    && dpkg --force-depends -i /tmp/wkhtml.deb \
-    && apt-get install -y -f --no-install-recommends \
-    && rm /tmp/wkhtml.deb
+# install latest postgresql-client
+RUN set -x; \
+        echo 'deb http://apt.postgresql.org/pub/repos/apt/ stretch-pgdg main' > etc/apt/sources.list.d/pgdg.list \
+        && export GNUPGHOME="$(mktemp -d)" \
+        && repokey='B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8' \
+        && gpg --batch --keyserver keyserver.ubuntu.com --recv-keys "${repokey}" \
+        && gpg --batch --armor --export "${repokey}" > /etc/apt/trusted.gpg.d/pgdg.gpg.asc \
+        && gpgconf --kill all \
+        && rm -rf "$GNUPGHOME" \
+        && apt-get update  \
+        && apt-get install -y postgresql-client \
+        && rm -rf /var/lib/apt/lists/*
 
-# Install rtlcss (on Debian stretch)
-RUN curl -sSL https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add - \
-    && echo "deb https://deb.nodesource.com/node_8.x stretch main" > /etc/apt/sources.list.d/nodesource.list \
-    && apt-get update \
-    && apt-get install -y nodejs
+# Install Odoo
+ENV ODOO_VERSION 11.0
+ARG ODOO_RELEASE=20191106
+ARG ODOO_SHA=d6da6c631fb9926c4440f2016d623c37fa38d4ea
+RUN set -x; \
+        curl -o odoo.deb -sSL http://nightly.odoo.com/${ODOO_VERSION}/nightly/deb/odoo_${ODOO_VERSION}.${ODOO_RELEASE}_all.deb \
+        && echo "${ODOO_SHA} odoo.deb" | sha1sum -c - \
+        && dpkg --force-depends -i odoo.deb \
+        && apt-get update \
+        && apt-get -y install -f --no-install-recommends \
+        && rm -rf /var/lib/apt/lists/* odoo.deb
 
-RUN npm install -g rtlcss
+# Copy entrypoint script and Odoo configuration file
+COPY ./entrypoint.sh /
+COPY ./odoo.conf /etc/odoo/
+RUN chown odoo /etc/odoo/odoo.conf
 
-# Install es-check tool
-RUN npm install -g es-check
+# Mount /var/lib/odoo to allow restoring filestore and /mnt/extra-addons for users addons
+RUN mkdir -p /mnt/extra-addons \
+        && chown -R odoo /mnt/extra-addons
+VOLUME ["/var/lib/odoo", "/mnt/extra-addons"]
 
-# Install for migration scripts
-RUN apt-get update \
-    && apt-get install -y python3-markdown
+# Expose Odoo services
+EXPOSE 8069 8071
 
-# Install flamegraph.pl
-ADD https://raw.githubusercontent.com/brendangregg/FlameGraph/master/flamegraph.pl /usr/local/bin/flamegraph.pl
-RUN chmod +rx /usr/local/bin/flamegraph.pl
+# Set the default config file
+ENV ODOO_RC /etc/odoo/odoo.conf
 
-# Install Odoo Debian dependencies
-ADD https://raw.githubusercontent.com/odoo/odoo/10.0/debian/control /tmp/p2-control
-ADD https://raw.githubusercontent.com/odoo/odoo/master/debian/control /tmp/p3-control
-RUN pip install -U setuptools wheel \
-    && apt-get update \
-    && sed -n '/^Depends:/,/^[A-Z]/p' /tmp/p2-control /tmp/p3-control | awk '/^ [a-z]/ { gsub(/,/,"") ; print }' | sort -u | sed 's/python-imaging/python-pil/'| sed 's/python-pypdf/python-pypdf2/' | DEBIAN_FRONTEND=noninteractive xargs apt-get install -y -qq \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+COPY wait-for-psql.py /usr/local/bin/wait-for-psql.py
 
-# Install Odoo requirements for python2 and python3 not fullfilled by Debian dependencies
-ADD https://raw.githubusercontent.com/odoo/odoo/master/requirements.txt /root/p3-requirements.txt
-ADD https://raw.githubusercontent.com/odoo/odoo/10.0/requirements.txt /root/p2-requirements.txt
-RUN pip install --no-cache-dir -r /root/p2-requirements.txt coverage flanker==0.4.38 pylint==1.7.2 phonenumbers redis \
-    && pip3 install --no-cache-dir -r /root/p3-requirements.txt coverage websocket-client astroid==2.0.4 pylint==1.7.2 phonenumbers pyCrypto dbfread==2.0.7 firebase-admin==2.17.0 flamegraph
+# Set default user when running the container
+USER odoo
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["odoo"]
