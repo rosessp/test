@@ -8,7 +8,7 @@ RUN mkdir /home/test \
 	&& git clone https://github.com/rosessp/test.git 
 	
 FROM python:3
-ADD /test/message.py /
+ADD /home/test/test/message.py /
 RUN pip install pystrich
 CMD [ "python", "./test/message.py" ]
 	
