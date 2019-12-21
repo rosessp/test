@@ -1,1 +1,1 @@
-print ("Continous Integration with Jenkins,SSH,Github")
+print ("Continous Integration with Jenkins,SSH & Github")
